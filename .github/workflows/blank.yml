@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pairwise Priority Ranker - Decision Matrix</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af',
+              800: '#1e3a8a',
+              900: '#172554',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    /* WCAG 2.1 AA Focus Indicator */
+    :focus-visible {
+      outline: 3px solid #1d4ed8 !important;
+      outline-offset: 3px !important;
+    }
+
+    /* Screen reader utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* File Folder Tabs Styling */
+    .folder-tab-bar {
+      display: flex;
+      gap: 5px;
+      align-items: flex-end;
+      position: relative;
+      z-index: 10;
+      margin-bottom: -1px;
+      overflow-x: auto;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .folder-tab {
+      position: relative;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      padding: 10px 18px;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      border-bottom: none;
+      background-color: #e2e8f0;
+      color: #475569;
+      transition: background-color 0.15s ease, color 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      cursor: default;
+    }
+
+    .folder-tab.tab-active {
+      background-color: #ffffff;
+      color: #0f172a;
+      border-color: #94a3b8;
+      border-bottom: 2px solid #ffffff;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      z-index: 20;
+      box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .folder-tab.tab-completed {
+      background-color: #f1f5f9;
+      color: #1e3a8a;
+    }
+
+    .folder-tab.tab-interactive {
+      cursor: pointer;
+    }
+    .folder-tab.tab-interactive:hover {
+      background-color: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .folder-sheet {
+      border: 1px solid #94a3b8;
+      background-color: #ffffff;
+      border-radius: 0 16px 16px 16px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+      position: relative;
+      z-index: 5;
+    }
+
+    @media (max-width: 640px) {
+      .folder-sheet {
+        border-radius: 16px;
+      }
+      .folder-tab {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+      }
+    }
+
+    /* Support for prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f8fafc;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+
+    /* Native modal dialog backdrop */
+    dialog::backdrop {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(2px);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col justify-between antialiased selection:bg-blue-200 selection:text-blue-950">
+
+  <!-- Accessibility Skip Link -->
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-800 focus:text-white focus:rounded-md focus:shadow-xl focus:font-bold">
+    Skip to main content
+  </a>
+
+  <!-- ARIA Live Announcements -->
+  <div id="sr-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="sr-alerts" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Header Banner -->
+  <header role="banner" class="border-b border-slate-300 bg-white/95 backdrop-blur-sm sticky top-0 z-40">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold text-lg shadow-sm" aria-hidden="true">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg text-slate-900 tracking-tight leading-tight">Pairwise Priority Ranker</h1>
+          <p class="text-xs text-slate-600 font-medium">Head-to-Head Analytical Decision Matrix</p>
+        </div>
+      </div>
+
+      <!-- Header Controls -->
+      <div class="flex items-center space-x-2">
+        <!-- Sound Toggle -->
+        <button 
+          id="soundToggleBtn" 
+          onclick="toggleAudio()" 
+          type="button"
+          aria-pressed="true"
+          aria-label="Sound effects are enabled. Click to mute sound."
+          class="text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 transition font-semibold flex items-center gap-1.5 shadow-sm"
+        >
+          <span id="soundIcon" aria-hidden="true">
+            <svg class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+            </svg>
+          </span>
+          <span id="soundStatusText">Sound On</span>
+        </button>
+
+        <!-- Accessibility / ADA Statement Button -->
+        <button 
+          id="adaModalBtn" 
+          onclick="openModal('adaModal')" 
+          type="button"
+          aria-haspopup="dialog"
+          class="text-xs px-3 py-2 rounded-xl border border-blue-300 bg-blue-50/70 text-blue-900 hover:bg-blue-100 transition font-bold flex items-center gap-1.5 shadow-sm"
+        >
+          <svg class="w-4 h-4 text-blue-700" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm9 7h-6v13h-2v-6h-2v6H9V9H3V7h18v2z"/>
+          </svg>
+          <span>ADA &amp; Accessibility</span>
+        </button>
+
+        <!-- How It Works Instructions Button -->
+        <button 
+          id="howItWorksBtn" 
+          onclick="openModal('infoModal')" 
+          type="button"
+          aria-haspopup="dialog"
+          class="text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition font-semibold flex items-center gap-1.5 shadow-sm"
+        >
+          <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Instructions</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main id="main-content" role="main" class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col justify-start">
+    
+    <!-- File Folder Navigation Tabs -->
+    <nav aria-label="Ranking Workflow Stages">
+      <div class="folder-tab-bar" role="tablist">
+        <button 
+          id="tab-btn-1" 
+          role="tab" 
+          aria-selected="true" 
+          aria-controls="step-1" 
+          tabindex="0"
+          onclick="handleTabClick(1)"
+          class="folder-tab tab-active"
+        >
+          <span class="w-4 h-4 rounded-full bg-blue-700 text-white text-[10px] flex items-center justify-center font-bold" aria-hidden="true">1</span>
+          <span>1. Setup &amp; Count</span>
+        </button>
+
+        <button 
+          id="tab-btn-2" 
+          role="tab" 
+          aria-selected="false" 
+          aria-controls="step-2" 
+          tabindex="-1"
+          onclick="handleTabClick(2)"
+          class="folder-tab"
+        >
+          <span class="w-4 h-4 rounded-full bg-slate-400 text-white text-[10px] flex items-center justify-center font-bold" aria-hidden="true">2</span>
+          <span>2. Enter Items</span>
+        </button>
+
+        <button 
+          id="tab-btn-3" 
+          role="tab" 
+          aria-selected="false" 
+          aria-controls="step-3" 
+          tabindex="-1"
+          onclick="handleTabClick(3)"
+          class="folder-tab"
+        >
+          <span class="w-4 h-4 rounded-full bg-slate-400 text-white text-[10px] flex items-center justify-center font-bold" aria-hidden="true">3</span>
+          <span>3. Pairwise Compare</span>
+        </button>
+
+        <button 
+          id="tab-btn-4" 
+          role="tab" 
+          aria-selected="false" 
+          aria-controls="step-4" 
+          tabindex="-1"
+          onclick="handleTabClick(4)"
+          class="folder-tab"
+        >
+          <span class="w-4 h-4 rounded-full bg-slate-400 text-white text-[10px] flex items-center justify-center font-bold" aria-hidden="true">4</span>
+          <span>4. Ranked Results</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Error/Validation Banner -->
+    <div id="toastMessage" role="alert" class="hidden mb-4 p-3.5 bg-red-50 border-2 border-red-300 text-red-900 text-sm font-semibold rounded-xl flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-red-700 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span id="toastText">Validation alert</span>
+      </div>
+      <button onclick="dismissToast()" type="button" aria-label="Dismiss error message" class="text-red-800 hover:text-red-950 p-1 font-bold text-lg leading-none">&times;</button>
+    </div>
+
+    <!-- Active Folder Sheet -->
+    <div class="folder-sheet p-6 sm:p-10">
+
+      <!-- ================= STEP 1: SETUP & COUNT ================= -->
+      <section id="step-1" role="tabpanel" aria-labelledby="tab-btn-1" class="transition-opacity duration-200">
+        <div class="max-w-xl mx-auto text-center">
+          <span class="inline-block px-3 py-1 bg-blue-100 text-blue-900 text-xs font-bold rounded-full uppercase tracking-wider mb-2">
+            Phase 1 &bull; Configuration
+          </span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            How many items do you want to rank?
+          </h2>
+          <p class="text-slate-700 mt-2 text-sm sm:text-base leading-relaxed">
+            Choose the number of items on your list. Each item will be paired head-to-head with every other item sequentially to uncover your true hierarchy of importance.
+          </p>
+
+          <form onsubmit="event.preventDefault(); goToStep2();" class="mt-8 flex flex-col items-center">
+            <div class="flex flex-col items-center">
+              <label for="itemCountInput" class="text-sm font-bold text-slate-800 mb-2">
+                Number of Items (3 to 20):
+              </label>
+              <div class="flex items-center justify-center space-x-3">
+                <button 
+                  type="button" 
+                  onclick="adjustCount(-1)" 
+                  aria-label="Decrease item count by 1"
+                  class="w-12 h-12 rounded-2xl border-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-100 flex items-center justify-center text-2xl font-bold transition active:scale-95 shadow-sm"
+                >
+                  &minus;
+                </button>
+                <input 
+                  type="number" 
+                  id="itemCountInput" 
+                  name="itemCountInput"
+                  min="3" 
+                  max="20" 
+                  value="4" 
+                  required
+                  aria-describedby="matchupEstimate"
+                  class="w-24 h-12 text-center text-2xl font-bold font-mono rounded-2xl border-2 border-slate-400 focus:border-blue-700 text-slate-950 transition"
+                >
+                <button 
+                  type="button" 
+                  onclick="adjustCount(1)" 
+                  aria-label="Increase item count by 1"
+                  class="w-12 h-12 rounded-2xl border-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-100 flex items-center justify-center text-2xl font-bold transition active:scale-95 shadow-sm"
+                >
+                  &#43;
+                </button>
+              </div>
+            </div>
+
+            <!-- Preset count choices (5 items removed as requested) -->
+            <fieldset class="mt-5">
+              <legend class="sr-only">Preset list sizes</legend>
+              <div class="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-slate-700">
+                <span class="text-slate-500 font-normal">Presets:</span>
+                <button type="button" onclick="setQuickCount(3)" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 text-slate-800 hover:text-blue-900 transition">3 items (3 matches)</button>
+                <button type="button" onclick="setQuickCount(4)" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 text-slate-800 hover:text-blue-900 transition">4 items (6 matches)</button>
+                <button type="button" onclick="setQuickCount(6)" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 text-slate-800 hover:text-blue-900 transition">6 items (15 matches)</button>
+                <button type="button" onclick="setQuickCount(8)" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 text-slate-800 hover:text-blue-900 transition">8 items (28 matches)</button>
+                <button type="button" onclick="setQuickCount(10)" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 text-slate-800 hover:text-blue-900 transition">10 items (45 matches)</button>
+              </div>
+            </fieldset>
+
+            <div id="matchupEstimate" class="mt-5 text-sm font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl inline-block" aria-live="polite">
+              4 items will generate 6 pairwise comparisons.
+            </div>
+
+            <div class="mt-8">
+              <button 
+                type="submit" 
+                class="px-8 py-3.5 bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2"
+              >
+                <span>Continue to Enter Items</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= STEP 2: ENTER ITEMS ================= -->
+      <section id="step-2" role="tabpanel" aria-labelledby="tab-btn-2" class="hidden transition-opacity duration-200">
+        <div class="max-w-2xl mx-auto">
+          <div class="flex items-center justify-between mb-4">
+            <button 
+              type="button" 
+              onclick="goToStep1()" 
+              class="text-xs font-bold text-slate-700 hover:text-blue-800 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+              </svg>
+              Adjust Count
+            </button>
+            <span class="inline-block px-3 py-1 bg-blue-100 text-blue-900 text-xs font-bold rounded-full uppercase tracking-wider">
+              Phase 2 &bull; Items Definition
+            </span>
+          </div>
+
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight text-center">
+            Name your list items
+          </h2>
+          <p class="text-slate-700 mt-1 text-center text-sm">
+            Enter each choice or topic clearly below.
+          </p>
+
+          <!-- Input Method Toggle -->
+          <div class="flex justify-center mt-6 mb-5" role="group" aria-label="Input Method Selection">
+            <div class="bg-slate-200 p-1 rounded-xl flex text-xs font-bold">
+              <button 
+                id="tabManual" 
+                type="button"
+                aria-pressed="true"
+                onclick="switchInputMode('manual')" 
+                class="px-4 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition"
+              >
+                Individual Fields
+              </button>
+              <button 
+                id="tabPaste" 
+                type="button"
+                aria-pressed="false"
+                onclick="switchInputMode('paste')" 
+                class="px-4 py-2 rounded-lg text-slate-700 hover:text-slate-950 transition"
+              >
+                Bulk Paste
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Individual Fields -->
+          <div id="manualInputContainer" class="space-y-3 max-h-[380px] overflow-y-auto pr-2 custom-scroll" role="group" aria-label="Individual list item inputs">
+            <!-- Programmatically injected -->
+          </div>
+
+          <!-- Bulk Paste Textarea -->
+          <div id="bulkInputContainer" class="hidden">
+            <label for="bulkTextarea" class="block text-xs font-bold text-slate-800 mb-1.5">
+              Paste or type items with one item on each line:
+            </label>
+            <textarea 
+              id="bulkTextarea" 
+              rows="7" 
+              placeholder="Item 1&#10;Item 2&#10;Item 3&#10;Item 4" 
+              class="w-full p-3.5 text-sm font-medium rounded-2xl border-2 border-slate-300 focus:border-blue-700 text-slate-900 leading-relaxed font-sans"
+            ></textarea>
+            <button 
+              type="button" 
+              onclick="parseBulkInput()" 
+              class="mt-2.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-bold text-slate-800 transition"
+            >
+              Parse &amp; Populate Fields
+            </button>
+          </div>
+
+          <!-- Samples & Clear Helpers -->
+          <div class="mt-6 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-1.5 text-slate-600 font-medium">
+              <span>Sample lists:</span>
+              <button type="button" onclick="loadSample('features')" class="text-blue-700 hover:underline font-bold">Features</button>
+              <span aria-hidden="true">&bull;</span>
+              <button type="button" onclick="loadSample('life')" class="text-blue-700 hover:underline font-bold">Life Priorities</button>
+              <span aria-hidden="true">&bull;</span>
+              <button type="button" onclick="loadSample('destinations')" class="text-blue-700 hover:underline font-bold">Travel</button>
+            </div>
+            <button 
+              type="button" 
+              onclick="clearAllInputFieldsOnly()" 
+              class="text-red-700 hover:text-red-900 font-semibold px-2 py-1 rounded transition hover:bg-red-50"
+            >
+              Clear Fields
+            </button>
+          </div>
+
+          <div class="mt-8 flex justify-center">
+            <button 
+              type="button" 
+              onclick="startComparisonProcess()" 
+              class="w-full sm:w-auto px-8 py-3.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-2xl shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>Begin Head-to-Head Comparisons</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= STEP 3: PAIRWISE COMPARISONS ================= -->
+      <section id="step-3" role="tabpanel" aria-labelledby="tab-btn-3" class="hidden transition-opacity duration-200">
+        <div class="max-w-2xl mx-auto">
+          
+          <!-- Matchup Status Headers -->
+          <div class="flex items-center justify-between mb-2 text-xs font-bold text-slate-700">
+            <span id="currentPairLabel">Matchup 1 of 6</span>
+            <span id="progressPercentLabel">0% Completed</span>
+          </div>
+
+          <!-- Visual Progress Bar -->
+          <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden mb-6" role="progressbar" id="rankingProgressBar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Ranking comparison progress">
+            <div id="progressBarFill" class="bg-blue-700 h-full rounded-full transition-all duration-300 w-0"></div>
+          </div>
+
+          <div class="text-center mb-6">
+            <span class="inline-block px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-full mb-2">
+              Decision Point
+            </span>
+            <h2 id="comparisonPromptHeading" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Which item is more important to you?
+            </h2>
+            <p class="text-xs text-slate-600 mt-1 font-medium">
+              Activate your choice below, or use keyboard keys <kbd class="px-1.5 py-0.5 bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-800">[1]</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-800">[&larr;]</kbd> for Option A, or <kbd class="px-1.5 py-0.5 bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-800">[2]</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-200 border border-slate-300 rounded font-mono font-bold text-slate-800">[&rarr;]</kbd> for Option B.
+            </p>
+          </div>
+
+          <!-- Decision Cards with Centered Match Indicator -->
+          <div class="relative grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 my-6 items-stretch" role="group" aria-labelledby="comparisonPromptHeading">
+            
+            <!-- Choice A Card -->
+            <button 
+              id="choiceBtnA" 
+              type="button" 
+              onclick="registerVote('A')" 
+              aria-keyshortcuts="1 LeftArrow"
+              aria-describedby="optionAText"
+              class="group relative text-left p-6 sm:p-7 rounded-2xl border-2 border-slate-300 hover:border-blue-700 bg-white hover:bg-blue-50/50 transition flex flex-col justify-between shadow-sm active:scale-[0.98] min-h-[175px]"
+            >
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 group-hover:text-blue-800 flex items-center gap-1.5">
+                  <span class="w-6 h-6 rounded-full bg-slate-200 group-hover:bg-blue-700 group-hover:text-white flex items-center justify-center text-xs font-bold" aria-hidden="true">A</span>
+                  Option A
+                </span>
+                <span class="text-xs font-mono font-bold px-2 py-0.5 bg-slate-100 rounded border border-slate-200 text-slate-700">Key 1 / &larr;</span>
+              </div>
+              <div class="my-3">
+                <p id="optionAText" class="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-blue-900 break-words leading-tight">
+                  Option A Content
+                </p>
+              </div>
+              <div class="text-xs font-bold text-blue-700 flex items-center gap-1">
+                <span>Select this priority</span>
+                <svg class="w-4 h-4 transform group-hover:translate-x-1 transition" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </button>
+
+            <!-- Centered Match Number Badge -->
+            <div class="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-20 flex justify-center items-center pointer-events-none my-1 md:my-0">
+              <div class="bg-white border-2 border-slate-400 shadow-md rounded-2xl px-4 py-2 text-center flex flex-col items-center">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Match</span>
+                <span id="centerMatchNumber" class="text-sm font-extrabold text-blue-700 font-mono tracking-tight leading-none mt-0.5" aria-hidden="true">1 of 6</span>
+              </div>
+            </div>
+
+            <!-- Choice B Card -->
+            <button 
+              id="choiceBtnB" 
+              type="button" 
+              onclick="registerVote('B')" 
+              aria-keyshortcuts="2 RightArrow"
+              aria-describedby="optionBText"
+              class="group relative text-left p-6 sm:p-7 rounded-2xl border-2 border-slate-300 hover:border-indigo-700 bg-white hover:bg-indigo-50/50 transition flex flex-col justify-between shadow-sm active:scale-[0.98] min-h-[175px]"
+            >
+              <div class="flex items-center justify-between w-full">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 group-hover:text-indigo-800 flex items-center gap-1.5">
+                  <span class="w-6 h-6 rounded-full bg-slate-200 group-hover:bg-indigo-700 group-hover:text-white flex items-center justify-center text-xs font-bold" aria-hidden="true">B</span>
+                  Option B
+                </span>
+                <span class="text-xs font-mono font-bold px-2 py-0.5 bg-slate-100 rounded border border-slate-200 text-slate-700">Key 2 / &rarr;</span>
+              </div>
+              <div class="my-3">
+                <p id="optionBText" class="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-indigo-900 break-words leading-tight">
+                  Option B Content
+                </p>
+              </div>
+              <div class="text-xs font-bold text-indigo-700 flex items-center gap-1">
+                <span>Select this priority</span>
+                <svg class="w-4 h-4 transform group-hover:translate-x-1 transition" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </button>
+
+          </div>
+
+          <!-- Tie and Undo Actions -->
+          <div class="flex items-center justify-between border-t border-slate-200 pt-4 mt-6">
+            <button 
+              id="undoBtn" 
+              type="button" 
+              onclick="undoLastComparison()" 
+              disabled
+              class="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-300 transition disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l6 6m-6-6l6-6"/>
+              </svg>
+              <span>Undo Last Pick</span>
+            </button>
+
+            <button 
+              type="button" 
+              onclick="registerVote('TIE')" 
+              class="text-xs font-bold px-4 py-2 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition"
+            >
+              Equal Importance (Tie / 0.5 pts each)
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= STEP 4: FINAL RANKINGS & EXPORTS ================= -->
+      <section id="step-4" role="tabpanel" aria-labelledby="tab-btn-4" class="hidden transition-opacity duration-200">
+        <div class="max-w-2xl mx-auto">
+          <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 mb-3 border border-emerald-200" aria-hidden="true">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Your Priority Rankings</h2>
+            <p class="text-sm font-medium text-slate-700 mt-1">Calculated through comprehensive pairwise matchups.</p>
+          </div>
+
+          <!-- Results List Container -->
+          <ol id="rankingsContainer" class="space-y-3 mb-8" aria-label="Final Ordered Priority List">
+            <!-- Programmatically injected -->
+          </ol>
+
+          <!-- Export & Action Suite -->
+          <div class="p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl space-y-4">
+            <div>
+              <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2">Export &amp; Share Options</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                
+                <!-- Copy to Clipboard -->
+                <button 
+                  type="button" 
+                  onclick="copyRankingsText()" 
+                  class="px-3 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                  </svg>
+                  <span id="copyBtnText">Copy</span>
+                </button>
+
+                <!-- Export as TXT -->
+                <button 
+                  type="button" 
+                  onclick="exportAsTxt()" 
+                  class="px-3 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                >
+                  <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <span>Export .TXT</span>
+                </button>
+
+                <!-- Export as CSV -->
+                <button 
+                  type="button" 
+                  onclick="exportAsCsv()" 
+                  class="px-3 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                >
+                  <svg class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <span>Export .CSV</span>
+                </button>
+
+                <!-- Email Results -->
+                <button 
+                  type="button" 
+                  onclick="emailResults()" 
+                  class="px-3 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                >
+                  <svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                  <span>Email</span>
+                </button>
+
+              </div>
+            </div>
+
+            <!-- List Session Actions -->
+            <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <button 
+                type="button" 
+                onclick="restartSameItems()" 
+                class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span>Re-Rank Same Items</span>
+              </button>
+
+              <!-- New List: Guaranteed Complete Reset -->
+              <button 
+                type="button" 
+                onclick="startNewListCompletePurge()" 
+                class="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4 text-red-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                <span>New List (Clear All)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================= ADA & ACCESSIBILITY MODAL DIALOG ================= -->
+  <dialog 
+    id="adaModal" 
+    aria-labelledby="adaModalTitle" 
+    class="rounded-3xl p-0 border border-slate-300 max-w-xl w-full shadow-2xl text-slate-900 bg-white"
+  >
+    <div class="p-6 sm:p-8 max-h-[85vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center" aria-hidden="true">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm9 7h-6v13h-2v-6h-2v6H9V9H3V7h18v2z"/>
+            </svg>
+          </div>
+          <h3 id="adaModalTitle" class="text-xl font-extrabold text-slate-900">ADA &amp; WCAG 2.1 AA Compliance</h3>
+        </div>
+        <button 
+          type="button" 
+          onclick="closeModal('adaModal')" 
+          aria-label="Close accessibility statement modal" 
+          class="text-slate-500 hover:text-slate-900 text-2xl font-bold p-1 rounded-lg"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div class="text-sm text-slate-700 space-y-4 pt-4 leading-relaxed">
+        <p>
+          This web application was engineered to adhere to the Americans with Disabilities Act (ADA) and Title III web guidance, aligning with <strong>W3C Web Content Accessibility Guidelines (WCAG) 2.1 Level AA</strong>.
+        </p>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-1">1. Full Keyboard Operability</h4>
+          <p class="text-xs text-slate-600">
+            Every interactive control is fully accessible via keyboard. Users can navigate using <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">Tab</kbd> and <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">Shift+Tab</kbd>. Dedicated comparison shortcuts are active during matches: <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">1</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">&larr;</kbd> for Option A, <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">2</kbd> / <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">&rarr;</kbd> for Option B, and <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">Esc</kbd> to close any dialog.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-1">2. Screen Reader Compatibility &amp; ARIA Semantics</h4>
+          <p class="text-xs text-slate-600">
+            Includes semantic HTML5 landmarks (<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700">&lt;header&gt;</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700">&lt;nav&gt;</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700">&lt;main&gt;</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700">&lt;dialog&gt;</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-700">&lt;footer&gt;</code>). Dynamic notifications, match changes, and calculation updates are communicated via dedicated ARIA live regions (<code class="bg-slate-100 px-1 py-0.5 rounded">aria-live="polite"</code> and <code class="bg-slate-100 px-1 py-0.5 rounded">aria-live="assertive"</code>).
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-1">3. High Contrast &amp; Focus Visibility</h4>
+          <p class="text-xs text-slate-600">
+            Text colors exceed the WCAG 2.1 AA minimum contrast requirement of 4.5:1 against their backgrounds. Visible, high-contrast 3px focus rings are enforced on all interactive elements via <code class="bg-slate-100 px-1 py-0.5 rounded">:focus-visible</code>.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-1">4. Sensory &amp; Motion Accommodations</h4>
+          <p class="text-xs text-slate-600">
+            Audio feedback is paired with a direct one-click Sound Mute toggle. Audio cues are purely supplementary and never convey information that is not also visually presented. The UI respects the <code class="bg-slate-100 px-1 py-0.5 rounded">prefers-reduced-motion</code> operating system setting by disabling animations.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-1">5. Accessible Native Modal Dialogs</h4>
+          <p class="text-xs text-slate-600">
+            Popups use native HTML5 <code class="bg-slate-100 px-1 py-0.5 rounded">&lt;dialog&gt;</code> elements with backdrop inert isolation, backdrop tinting, and focus return upon dismissal.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+        <button 
+          type="button" 
+          onclick="closeModal('adaModal')" 
+          class="px-6 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition"
+        >
+          Understood &amp; Close
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ================= INSTRUCTIONS MODAL DIALOG ================= -->
+  <dialog 
+    id="infoModal" 
+    aria-labelledby="infoModalTitle" 
+    class="rounded-3xl p-0 border border-slate-300 max-w-lg w-full shadow-2xl text-slate-900 bg-white"
+  >
+    <div class="p-6 sm:p-8 max-h-[85vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+        <h3 id="infoModalTitle" class="text-xl font-extrabold text-slate-900">How Pairwise Ranking Works</h3>
+        <button 
+          type="button" 
+          onclick="closeModal('infoModal')" 
+          aria-label="Close instructions modal" 
+          class="text-slate-500 hover:text-slate-900 text-2xl font-bold p-1 rounded-lg"
+        >
+          &times;
+        </button>
+      </div>
+      <div class="text-sm text-slate-700 space-y-3 pt-4 leading-relaxed">
+        <p>
+          Ranking many items simultaneously often results in decision fatigue and cognitive bias. Pairwise ranking isolates every choice into an objective <strong>head-to-head match</strong>.
+        </p>
+        <p>
+          For a list of <strong>N</strong> items, the program calculates exactly <strong>(N &times; (N &minus; 1)) / 2</strong> unique pairs:
+        </p>
+        <ul class="list-disc pl-5 space-y-1 text-slate-800 font-medium">
+          <li>Item 1 is matched against Item 2, 3, 4, ... N</li>
+          <li>Item 2 is matched against Item 3, 4, ... N</li>
+          <li>Scores are aggregated, and the final list displays ordered by total victories.</li>
+        </ul>
+        <p class="font-medium text-slate-900">
+          Keyboard shortcuts: You can vote using keys <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">1</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">&larr;</kbd> for Option A, and <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">2</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800">&rarr;</kbd> for Option B.
+        </p>
+      </div>
+      <div class="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+        <button 
+          type="button" 
+          onclick="closeModal('infoModal')" 
+          class="px-6 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition"
+        >
+          Close Instructions
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Footer with Attribution -->
+  <footer role="contentinfo" class="border-t border-slate-300 bg-white py-6 mt-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center text-xs font-semibold text-slate-700 space-y-1.5">
+      <p>
+        By Dr. Chris Caulkins &copy; 2026 All Rights Reserved | 
+        <a 
+          href="https://www.freerangethinker.org" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          class="text-blue-700 hover:text-blue-900 underline font-bold transition"
+        >
+          www.freerangethinker.org
+          <span class="sr-only">(opens in a new window)</span>
+        </a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Application Logic & Scripts -->
+  <script>
+    // State management
+    const state = {
+      currentStep: 1,
+      maxReachedStep: 1,
+      targetCount: 4,
+      items: [],
+      pairs: [],
+      currentPairIndex: 0,
+      scores: {},
+      history: [],
+      soundEnabled: true,
+      finalRankedList: null,
+      lastFocusedElement: null
+    };
+
+    // Web Audio Synthesizer (Zero external audio file dependencies)
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!state.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        if (type === 'voteA') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, now); // D5
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'voteB') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(659.25, now); // E5
+          osc.frequency.exponentialRampToValueAtTime(987.77, now + 0.12); // B5
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'tie') {
+          [440, 554.37].forEach((freq) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+          });
+        } else if (type === 'undo') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.14);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'fanfare') {
+          const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            const noteStart = now + (idx * 0.08);
+            osc.frequency.setValueAtTime(freq, noteStart);
+            gain.gain.setValueAtTime(0.15, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(noteStart);
+            osc.stop(noteStart + 0.36);
+          });
+        }
+      } catch (e) {
+        // Fallback gracefully if audio is prevented
+      }
+    }
+
+    // Accessible Audio Toggle
+    function toggleAudio() {
+      state.soundEnabled = !state.soundEnabled;
+      const soundToggleBtn = document.getElementById('soundToggleBtn');
+      const soundStatusText = document.getElementById('soundStatusText');
+      const soundIcon = document.getElementById('soundIcon');
+
+      soundToggleBtn.setAttribute('aria-pressed', state.soundEnabled ? 'true' : 'false');
+
+      if (state.soundEnabled) {
+        soundStatusText.textContent = "Sound On";
+        soundToggleBtn.setAttribute('aria-label', 'Sound effects are enabled. Click to mute sound.');
+        soundIcon.innerHTML = `
+          <svg class="w-4 h-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+          </svg>
+        `;
+        announceLive("Sound effects unmuted");
+        playSound('voteA');
+      } else {
+        soundStatusText.textContent = "Muted";
+        soundToggleBtn.setAttribute('aria-label', 'Sound effects are muted. Click to enable sound.');
+        soundIcon.innerHTML = `
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+          </svg>
+        `;
+        announceLive("Sound effects muted");
+      }
+    }
+
+    // ARIA Live Announcers
+    function announceLive(message) {
+      const liveRegion = document.getElementById('sr-announcements');
+      if (liveRegion) {
+        liveRegion.textContent = '';
+        setTimeout(() => {
+          liveRegion.textContent = message;
+        }, 50);
+      }
+    }
+
+    function announceAlert(message) {
+      const alertRegion = document.getElementById('sr-alerts');
+      if (alertRegion) {
+        alertRegion.textContent = '';
+        setTimeout(() => {
+          alertRegion.textContent = message;
+        }, 50);
+      }
+    }
+
+    // Toast alert handlers
+    function showToast(message) {
+      const toast = document.getElementById('toastMessage');
+      const text = document.getElementById('toastText');
+      text.textContent = message;
+      toast.classList.remove('hidden');
+      announceAlert(message);
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 5000);
+    }
+
+    function dismissToast() {
+      document.getElementById('toastMessage').classList.add('hidden');
+    }
+
+    // Folder Tab Switching
+    function updateFolderTabs(activeStep) {
+      state.currentStep = activeStep;
+      if (activeStep > state.maxReachedStep) {
+        state.maxReachedStep = activeStep;
+      }
+
+      for (let i = 1; i <= 4; i++) {
+        const tabBtn = document.getElementById(`tab-btn-${i}`);
+        const section = document.getElementById(`step-${i}`);
+
+        if (i === activeStep) {
+          tabBtn.className = "folder-tab tab-active";
+          tabBtn.setAttribute('aria-selected', 'true');
+          tabBtn.setAttribute('tabindex', '0');
+          section.classList.remove('hidden');
+        } else {
+          section.classList.add('hidden');
+          tabBtn.setAttribute('aria-selected', 'false');
+          tabBtn.setAttribute('tabindex', '-1');
+
+          if (i <= state.maxReachedStep) {
+            tabBtn.className = "folder-tab tab-completed tab-interactive";
+          } else {
+            tabBtn.className = "folder-tab opacity-75";
+          }
+        }
+      }
+    }
+
+    function handleTabClick(stepNumber) {
+      if (stepNumber <= state.maxReachedStep) {
+        if (stepNumber === 1) goToStep1();
+        else if (stepNumber === 2) goToStep2();
+        else if (stepNumber === 3 && state.items.length >= 2) goToStep3();
+        else if (stepNumber === 4 && state.finalRankedList) goToStep4();
+      }
+    }
+
+    // Modal Dialog Handlers
+    function openModal(dialogId) {
+      state.lastFocusedElement = document.activeElement;
+      const modal = document.getElementById(dialogId);
+      if (modal && typeof modal.showModal === 'function') {
+        modal.showModal();
+      }
+    }
+
+    function closeModal(dialogId) {
+      const modal = document.getElementById(dialogId);
+      if (modal && typeof modal.close === 'function') {
+        modal.close();
+      }
+      if (state.lastFocusedElement) {
+        state.lastFocusedElement.focus();
+      }
+    }
+
+    // Step 1: Count logic
+    const itemCountInput = document.getElementById('itemCountInput');
+    const matchupEstimate = document.getElementById('matchupEstimate');
+
+    function calculateTotalPairs(n) {
+      return (n * (n - 1)) / 2;
+    }
+
+    function updateMatchupEstimate() {
+      const val = parseInt(itemCountInput.value, 10);
+      if (!isNaN(val) && val >= 3) {
+        const total = calculateTotalPairs(val);
+        matchupEstimate.textContent = `${val} items will generate ${total} pairwise comparison${total === 1 ? '' : 's'}.`;
+      } else {
+        matchupEstimate.textContent = 'Please specify at least 3 items.';
+      }
+    }
+
+    function adjustCount(delta) {
+      let current = parseInt(itemCountInput.value, 10) || 3;
+      current = Math.min(Math.max(3, current + delta), 20);
+      itemCountInput.value = current;
+      updateMatchupEstimate();
+    }
+
+    function setQuickCount(count) {
+      itemCountInput.value = count;
+      updateMatchupEstimate();
+    }
+
+    itemCountInput.addEventListener('input', updateMatchupEstimate);
+
+    function goToStep1() {
+      updateFolderTabs(1);
+      announceLive("Returned to Step 1: Item Setup & Count");
+    }
+
+    function goToStep2() {
+      const count = parseInt(itemCountInput.value, 10);
+      if (isNaN(count) || count < 3) {
+        showToast('Please specify a valid item count (minimum 3 items).');
+        return;
+      }
+      if (count > 20) {
+        showToast('Maximum item count is 20 to preserve comparison feasibility.');
+        return;
+      }
+
+      state.targetCount = count;
+      renderItemInputRows(count);
+      updateFolderTabs(2);
+      announceLive(`Step 2: Enter names for your ${count} items.`);
+
+      setTimeout(() => {
+        const first = document.getElementById('item-input-0');
+        if (first) first.focus();
+      }, 60);
+    }
+
+    // Step 2: Item Entry
+    const manualContainer = document.getElementById('manualInputContainer');
+    const bulkContainer = document.getElementById('bulkInputContainer');
+    const bulkTextarea = document.getElementById('bulkTextarea');
+
+    function renderItemInputRows(count) {
+      manualContainer.innerHTML = '';
+      const existing = state.items;
+
+      for (let i = 0; i < count; i++) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2.5';
+        
+        const existingVal = existing[i] ? existing[i].replace(/"/g, '&quot;') : '';
+
+        row.innerHTML = `
+          <label for="item-input-${i}" class="w-8 h-8 rounded-xl bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center shrink-0">
+            ${i + 1}
+          </label>
+          <input 
+            type="text" 
+            id="item-input-${i}" 
+            data-index="${i}" 
+            value="${existingVal}"
+            aria-label="Item number ${i + 1}"
+            placeholder="e.g., Option ${i + 1}" 
+            class="item-text-field flex-grow px-4 py-2.5 rounded-xl border border-slate-300 focus:border-blue-700 text-sm font-semibold text-slate-900 transition"
+          />
+        `;
+        manualContainer.appendChild(row);
+      }
+
+      const inputs = manualContainer.querySelectorAll('input');
+      inputs.forEach((input, idx) => {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (idx + 1 < inputs.length) {
+              inputs[idx + 1].focus();
+            } else {
+              startComparisonProcess();
+            }
+          }
+        });
+      });
+    }
+
+    function switchInputMode(mode) {
+      const tabManual = document.getElementById('tabManual');
+      const tabPaste = document.getElementById('tabPaste');
+      
+      if (mode === 'manual') {
+        manualContainer.classList.remove('hidden');
+        bulkContainer.classList.add('hidden');
+        tabManual.className = "px-4 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition";
+        tabPaste.className = "px-4 py-2 rounded-lg text-slate-700 hover:text-slate-950 transition";
+        tabManual.setAttribute('aria-pressed', 'true');
+        tabPaste.setAttribute('aria-pressed', 'false');
+      } else {
+        manualContainer.classList.add('hidden');
+        bulkContainer.classList.remove('hidden');
+        tabPaste.className = "px-4 py-2 rounded-lg bg-white text-slate-900 shadow-sm transition";
+        tabManual.className = "px-4 py-2 rounded-lg text-slate-700 hover:text-slate-950 transition";
+        tabPaste.setAttribute('aria-pressed', 'true');
+        tabManual.setAttribute('aria-pressed', 'false');
+        
+        const currentInputs = Array.from(document.querySelectorAll('.item-text-field')).map(inp => inp.value.trim());
+        bulkTextarea.value = currentInputs.filter(Boolean).join('\n');
+      }
+    }
+
+    function parseBulkInput() {
+      const lines = bulkTextarea.value.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 3) {
+        showToast('Please provide at least 3 items (one item per line).');
+        return;
+      }
+      state.targetCount = lines.length;
+      itemCountInput.value = lines.length;
+      updateMatchupEstimate();
+      state.items = lines;
+      renderItemInputRows(lines.length);
+      switchInputMode('manual');
+      announceLive(`Imported ${lines.length} items successfully.`);
+    }
+
+    function clearAllInputFieldsOnly() {
+      const fields = document.querySelectorAll('.item-text-field');
+      fields.forEach(f => f.value = '');
+      bulkTextarea.value = '';
+      state.items = [];
+      announceLive("All item fields cleared.");
+    }
+
+    const samplePacks = {
+      features: ["Real-time Collaboration", "Dark Mode Theme", "Export to CSV & PDF", "Keyboard Navigation"],
+      life: ["Career Growth", "Physical Health", "Family Relationships", "Financial Security"],
+      destinations: ["Kyoto, Japan", "Swiss Alps", "Reykjavik, Iceland", "Maui, Hawaii"]
+    };
+
+    function loadSample(key) {
+      const sample = samplePacks[key];
+      if (!sample) return;
+      state.targetCount = sample.length;
+      itemCountInput.value = sample.length;
+      updateMatchupEstimate();
+      state.items = [...sample];
+      renderItemInputRows(sample.length);
+      announceLive(`Loaded sample list with ${sample.length} items.`);
+    }
+
+    function generatePairs(n) {
+      const pairList = [];
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          pairList.push([i, j]);
+        }
+      }
+      return pairList;
+    }
+
+    // Step 3: Comparisons
+    function startComparisonProcess() {
+      const inputFields = document.querySelectorAll('.item-text-field');
+      const enteredItems = [];
+
+      inputFields.forEach((inp, idx) => {
+        const val = inp.value.trim();
+        if (val) {
+          enteredItems.push(val);
+        } else {
+          enteredItems.push(`Option ${idx + 1}`);
+        }
+      });
+
+      if (enteredItems.length < 3) {
+        showToast('Please enter at least 3 items to rank.');
+        return;
+      }
+
+      state.items = enteredItems;
+      state.pairs = generatePairs(state.items.length);
+      state.currentPairIndex = 0;
+      state.scores = {};
+      state.history = [];
+
+      for (let i = 0; i < state.items.length; i++) {
+        state.scores[i] = 0;
+      }
+
+      goToStep3();
+    }
+
+    function goToStep3() {
+      updateFolderTabs(3);
+      renderCurrentPair();
+    }
+
+    function renderCurrentPair() {
+      const totalPairs = state.pairs.length;
+      const index = state.currentPairIndex;
+
+      if (index >= totalPairs) {
+        showFinalRankings();
+        return;
+      }
+
+      const [itemIdxA, itemIdxB] = state.pairs[index];
+      const itemA = state.items[itemIdxA];
+      const itemB = state.items[itemIdxB];
+
+      document.getElementById('optionAText').textContent = itemA;
+      document.getElementById('optionBText').textContent = itemB;
+
+      const currentNumber = index + 1;
+      const progressPercent = Math.round((index / totalPairs) * 100);
+
+      document.getElementById('currentPairLabel').textContent = `Matchup ${currentNumber} of ${totalPairs}`;
+      document.getElementById('centerMatchNumber').textContent = `${currentNumber} of ${totalPairs}`;
+      document.getElementById('progressPercentLabel').textContent = `${progressPercent}% Completed`;
+      document.getElementById('progressBarFill').style.width = `${progressPercent}%`;
+
+      const progressBar = document.getElementById('rankingProgressBar');
+      progressBar.setAttribute('aria-valuenow', progressPercent);
+
+      document.getElementById('undoBtn').disabled = (state.history.length === 0);
+
+      announceLive(`Matchup ${currentNumber} of ${totalPairs}: Option A is ${itemA}. Option B is ${itemB}.`);
+    }
+
+    function registerVote(winner) {
+      if (state.currentPairIndex >= state.pairs.length) return;
+
+      const [idxA, idxB] = state.pairs[state.currentPairIndex];
+      let deltaA = 0;
+      let deltaB = 0;
+
+      if (winner === 'A') {
+        deltaA = 1;
+        state.scores[idxA] = (state.scores[idxA] || 0) + 1;
+        playSound('voteA');
+      } else if (winner === 'B') {
+        deltaB = 1;
+        state.scores[idxB] = (state.scores[idxB] || 0) + 1;
+        playSound('voteB');
+      } else if (winner === 'TIE') {
+        deltaA = 0.5;
+        deltaB = 0.5;
+        state.scores[idxA] = (state.scores[idxA] || 0) + 0.5;
+        state.scores[idxB] = (state.scores[idxB] || 0) + 0.5;
+        playSound('tie');
+      }
+
+      state.history.push({
+        pairIndex: state.currentPairIndex,
+        winner,
+        deltaA,
+        deltaB,
+        idxA,
+        idxB
+      });
+
+      state.currentPairIndex++;
+      renderCurrentPair();
+    }
+
+    function undoLastComparison() {
+      if (state.history.length === 0) return;
+
+      const last = state.history.pop();
+      state.scores[last.idxA] -= last.deltaA;
+      state.scores[last.idxB] -= last.deltaB;
+      state.currentPairIndex = last.pairIndex;
+
+      playSound('undo');
+      announceLive("Previous choice reverted.");
+      renderCurrentPair();
+    }
+
+    // Accessible Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (state.currentStep === 3) {
+        if (e.key === '1' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          registerVote('A');
+        } else if (e.key === '2' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          registerVote('B');
+        } else if (e.key === 't' || e.key === 'T') {
+          e.preventDefault();
+          registerVote('TIE');
+        } else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          undoLastComparison();
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          undoLastComparison();
+        }
+      }
+    });
+
+    // Step 4: Results & Rankings
+    function showFinalRankings() {
+      goToStep4();
+      playSound('fanfare');
+
+      const totalMatchesPerItem = state.items.length - 1;
+
+      const results = state.items.map((name, index) => {
+        const score = state.scores[index] || 0;
+        const winRate = totalMatchesPerItem > 0 ? (score / totalMatchesPerItem) * 100 : 0;
+        return {
+          index,
+          name,
+          score,
+          winRate: Math.round(winRate),
+          totalMatches: totalMatchesPerItem
+        };
+      });
+
+      results.sort((a, b) => b.score - a.score);
+      state.finalRankedList = results;
+
+      const container = document.getElementById('rankingsContainer');
+      container.innerHTML = '';
+
+      results.forEach((item, rankIdx) => {
+        const rank = rankIdx + 1;
+        const row = document.createElement('li');
+        row.className = 'group p-4 sm:p-5 rounded-2xl border transition flex items-center justify-between gap-4 ' +
+          (rank === 1 ? 'bg-amber-50 border-amber-300 shadow-sm' :
+           rank === 2 ? 'bg-slate-100 border-slate-300' :
+           rank === 3 ? 'bg-orange-50 border-orange-200' :
+           'bg-white border-slate-200');
+
+        let badgeHtml = '';
+        if (rank === 1) {
+          badgeHtml = `<span class="w-8 h-8 rounded-full bg-amber-500 text-white font-extrabold text-xs flex items-center justify-center shadow" aria-label="Rank 1">#1</span>`;
+        } else if (rank === 2) {
+          badgeHtml = `<span class="w-8 h-8 rounded-full bg-slate-500 text-white font-extrabold text-xs flex items-center justify-center" aria-label="Rank 2">#2</span>`;
+        } else if (rank === 3) {
+          badgeHtml = `<span class="w-8 h-8 rounded-full bg-amber-800 text-white font-extrabold text-xs flex items-center justify-center" aria-label="Rank 3">#3</span>`;
+        } else {
+          badgeHtml = `<span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-300" aria-label="Rank ${rank}">#${rank}</span>`;
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center space-x-3.5 min-w-0">
+            ${badgeHtml}
+            <div class="min-w-0">
+              <h3 class="font-extrabold text-slate-900 text-base sm:text-lg truncate">
+                ${item.name}
+              </h3>
+              <p class="text-xs font-medium text-slate-600">
+                ${item.score} victories of ${item.totalMatches} matchups (${item.winRate}% win rate)
+              </p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-base font-extrabold text-slate-900 font-mono">${item.score} pts</span>
+            <div class="w-20 sm:w-24 bg-slate-200 h-2 rounded-full overflow-hidden mt-1" aria-hidden="true">
+              <div class="h-full bg-blue-700 rounded-full" style="width: ${item.winRate}%"></div>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(row);
+      });
+
+      announceLive("Ranking completed! Top ranked priority is " + results[0].name);
+    }
+
+    function goToStep4() {
+      updateFolderTabs(4);
+    }
+
+    // Export Suite Implementations
+    function getFormattedRankingsText() {
+      if (!state.finalRankedList) return '';
+      const lines = state.finalRankedList.map((item, idx) => {
+        return `${idx + 1}. ${item.name} - ${item.score} pts (${item.winRate}% win rate)`;
+      });
+      return `PAIRWISE PRIORITY RANKINGS\n==========================\n\n` + 
+             lines.join('\n') + 
+             `\n\nGenerated with Pairwise Priority Ranker\nBy Dr. Chris Caulkins © 2026 All Rights Reserved\nwww.freerangethinker.org`;
+    }
+
+    function copyRankingsText() {
+      if (!state.finalRankedList) return;
+      const fullText = getFormattedRankingsText();
+
+      const tempTextArea = document.createElement('textarea');
+      tempTextArea.value = fullText;
+      tempTextArea.style.position = 'fixed';
+      tempTextArea.style.left = '-999999px';
+      tempTextArea.style.top = '-999999px';
+      document.body.appendChild(tempTextArea);
+      tempTextArea.focus();
+      tempTextArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        const btnText = document.getElementById('copyBtnText');
+        if (successful) {
+          btnText.textContent = "Copied!";
+          announceLive("Rankings successfully copied to clipboard.");
+          setTimeout(() => {
+            btnText.textContent = "Copy";
+          }, 2000);
+        }
+      } catch (err) {
+        showToast('Clipboard copy failed. Please select text manually.');
+      } finally {
+        document.body.removeChild(tempTextArea);
+      }
+    }
+
+    function exportAsTxt() {
+      if (!state.finalRankedList) return;
+      const textContent = getFormattedRankingsText();
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'priority_rankings.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      announceLive("Rankings downloaded as a text file.");
+    }
+
+    function exportAsCsv() {
+      if (!state.finalRankedList) return;
+      const headers = ['Rank', 'Item Name', 'Points / Victories', 'Win Rate (%)', 'Total Matchups'];
+      const rows = state.finalRankedList.map((item, idx) => {
+        const escapedName = `"${item.name.replace(/"/g, '""')}"`;
+        return [idx + 1, escapedName, item.score, `${item.winRate}%`, item.totalMatches].join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'priority_rankings.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      announceLive("Rankings downloaded as a CSV spreadsheet.");
+    }
+
+    function emailResults() {
+      if (!state.finalRankedList) return;
+      const subject = encodeURIComponent("Pairwise Priority Ranking Results");
+      const body = encodeURIComponent(getFormattedRankingsText());
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+
+    function restartSameItems() {
+      state.pairs = generatePairs(state.items.length);
+      state.currentPairIndex = 0;
+      state.scores = {};
+      state.history = [];
+      for (let i = 0; i < state.items.length; i++) {
+        state.scores[i] = 0;
+      }
+      goToStep3();
+      announceLive("Restarted comparisons with existing items.");
+    }
+
+    function startNewListCompletePurge() {
+      // 1. Purge data
+      state.items = [];
+      state.pairs = [];
+      state.currentPairIndex = 0;
+      state.scores = {};
+      state.history = [];
+      state.finalRankedList = null;
+      state.maxReachedStep = 1;
+      state.targetCount = 4;
+
+      // 2. Clear Step 1 input
+      itemCountInput.value = 4;
+      updateMatchupEstimate();
+
+      // 3. Clear Step 2 containers
+      manualContainer.innerHTML = '';
+      bulkTextarea.value = '';
+      switchInputMode('manual');
+
+      // 4. Clear Step 3 displays
+      document.getElementById('optionAText').textContent = '';
+      document.getElementById('optionBText').textContent = '';
+      document.getElementById('currentPairLabel').textContent = 'Matchup 1 of 6';
+      document.getElementById('centerMatchNumber').textContent = '1 of 6';
+      document.getElementById('progressPercentLabel').textContent = '0% Completed';
+      document.getElementById('progressBarFill').style.width = '0%';
+      document.getElementById('undoBtn').disabled = true;
+
+      // 5. Clear Step 4 results
+      document.getElementById('rankingsContainer').innerHTML = '';
+
+      // 6. Return to Step 1
+      updateFolderTabs(1);
+      announceAlert("New list initialized. All previous items and results have been completely cleared.");
+
+      setTimeout(() => {
+        itemCountInput.focus();
+        itemCountInput.select();
+      }, 50);
+    }
+
+    // Initialize on page load
+    updateMatchupEstimate();
+  </script>
+</body>
+</html>
